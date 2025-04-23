@@ -2,7 +2,7 @@
 This LLM agent aims to streamline the time-consuming and repetitive work processes for professionals in the international trade industry, enhancing efficiency and operational convenience
 
 # Installation
-uv add mcp graphrag pathlib pandas
+uv add mcp graphrag pathlib pandas openpyxl googletrans==3.1.0a0
 uv run client.py   
 
 # Features

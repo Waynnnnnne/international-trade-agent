@@ -239,6 +239,7 @@ async def main():
     # 服务器脚本
     servers = {
         "rag": "./graphrag/rag_server.py",
+        "contract": "./contract/excel_server.py"
     }
     client = MultiServerMCPClient()
     try:

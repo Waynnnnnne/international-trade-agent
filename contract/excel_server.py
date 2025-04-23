@@ -1,60 +1,107 @@
+from pathlib import Path
+from pprint import pprint
+import pandas as pd 
+from typing import Any 
+from mcp.server.fastmcp import FastMCP
 import os 
-from langchain_community.document_loaders import UnstructuredExcelLoader
-from langchain.indexes import VectorstoreIndexCreator
-from langchain.chains import retrieval_qa
-from dotenv import load_dotenv
-from langchain_community.llms import Ollama
-import pandas as pd
+import requests
+from datetime import datetime
+from googletrans import Translator
 
+# init mcp server 
+mcp = FastMCP('excel_ML')
+USER_AGENT = 'excel_ML-app/1,0'
 
-doc_json = {
-  "text": [
-    "| 티주리 对账单        | Unnamed: 1   | Unnamed: 2   | Unnamed: 3   |\n|:---------------------|:-------------|:-------------|:-------------|\n| 品名                 | 数量         | 单价         | 合计         |\n| 长款羽绒服           | 1            | 321          | 321          |\n| 滑雪服半大衣         | 418          | 203          | 84854        |\n| 中款棉服             | 21           | 182          | 3822         |\n| 长款棉服             | 211          | 196          | 41356        |\n| 摇粒绒               | 1144         | 84           | 96096        |\n| 条幅                 | 300          | 10           | 3000         |\n| 棒球服               | 16130        | 135          | 2177550      |\n| 春季工作服           | 69           | 120          | 8280         |\n| 空军夹克             | 65           | 134          | 8710         |\n| 卫衣（有帽，有拉链） | 743          | 89           | 66127        |\n| 卫衣（有帽，无拉链） | 30           | 87           | 2610         |\n| 合计                 | 19132        | nan          | 2492726      |\n\n\n\n\n\n"
-  ]
-}
-
-
-
-
-
-
-def main():
+def get_exchange_rate() -> float:
     """
-    step1: 读取bom.xlsx
-    step2: 翻译为英文，转换为美元，指定或者获取实时汇率
-    step3: 获取结果填充到excel的指定位置上
+    获取当前人民币兑美元汇率
     """
+    try:
+        response = requests.get(
+            'https://api.exchangerate-api.com/v4/latest/CNY',
+            headers={'User-Agent': USER_AGENT}
+        )
+        data = response.json()
+        return data['rates']['USD']
+    except Exception as e:
+        print(f"获取汇率失败: {e}")
+        return 0.14  # 默认汇率
 
-    read_xlsx(doc_json)
+def translate_chinese_to_english(text: str) -> str:
+    """
+    将中文翻译为英文
+    """
+    try:
+        if not isinstance(text, str):
+            return str(text)
+            
+        # 检查是否包含中文字符
+        if not any('\u4e00' <= char <= '\u9fff' for char in text):
+            return text
+            
+        translator = Translator()
+        result = translator.translate(text, src='zh-cn', dest='en')
+        return result.text
+    except Exception as e:
+        print(f"翻译失败: {e}")
+        return text
 
-    # # 加载环境变量
-    # load_dotenv()
+@mcp.tool()
+async def excel_ML(query: str) -> str:
+    """
+    用于读取外贸行业中的excel文件
+    任务1:支持人民币转美元价格转换
+    任务2：中文品名翻译为英文
+    :param query: 用户提出的具体问题
+    :return: 最终获取的答案
+    """
+    try:
+        PROJECT_DIRECTORY = "./contract/input"
+        excel_files = [
+            os.path.join(PROJECT_DIRECTORY, item) 
+            for item in os.listdir(PROJECT_DIRECTORY)
+            if item.endswith(('.xlsx', '.xls'))
+        ]
 
-    # # 初始化Ollama客户端
-    # ollama_base_url = os.getenv("OLLAMA_BASE_URL")
-    # ollama_api_key = os.getenv("OLLAMA_API_KEY")
-    # ollama_model_name = "deepseek-r1:7b"
+        if not excel_files:
+            return "未找到Excel文件"
 
-    # llm = Ollama(
-    #     base_url=ollama_base_url,
-    #     api_key=ollama_api_key,
-    #     model_name=ollama_model_name
-    # )
-
-    # loader = UnstructuredExcelLoader("input/bom.xlsx")
-    # index=VectorstoreIndexCreator()
-    # doc=index.from_loaders([loader])
-    # chain=retrieval_qa.from_chain_type(
-    #     llm=llm,
-    #     chain_type="stuff",
-    #     retriever=doc.vectorstore.as_retriever(),
-    #     input_key="question"
-    # )
-    # query = "总共有多少中产品?"
-    # response=chain({"question": query})
-    # print(response["answer"])
-
+        # 读取第一个Excel文件
+        df = pd.read_excel(excel_files[0], header=1)
+        
+        # 获取当前汇率
+        exchange_rate = get_exchange_rate()
+        
+        # 查找包含价格的列
+        price_columns = [col for col in df.columns if '单价' in col or '合计' in col or 'price' in col.lower()]
+        
+        if not price_columns:
+            return "未找到价格列"
+            
+        # 转换价格
+        for col in price_columns:
+            df[col] = df[col] * exchange_rate
+        
+        # 查找品名列并翻译
+        product_columns = [col for col in df.columns if '品名' in col or '名称' in col or 'name' in col.lower()]
+        for col in product_columns:
+            # 创建新的英文列
+            english_col = col.replace('品名', '英文名称').replace('名称', '英文名称')
+            # 对每一行进行翻译
+            df[english_col] = df[col].apply(translate_chinese_to_english)
+        
+        # 保存转换后的文件
+        output_dir = "./contract/output"
+        os.makedirs(output_dir, exist_ok=True)
+        output_file = os.path.join(output_dir, f"converted_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx")
+        df.to_excel(output_file, index=False)
+        
+        return f"文件处理完成，已保存到: {output_file}\n当前汇率: 1 CNY = {exchange_rate:.4f} USD"
+        
+    except Exception as e:
+        return f"处理Excel文件时出错: {str(e)}"
 
 if __name__ == "__main__":
-    main()
-
+    # server 和 client在同一个节点上可以使用stdio
+    # 不在同一个服务器考虑使用sse
+    mcp.run(transport='stdio')
