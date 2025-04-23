@@ -1,12 +1,16 @@
 # International-Trade-Agent
 This LLM agent aims to streamline the time-consuming and repetitive work processes for professionals in the international trade industry, enhancing efficiency and operational convenience
 
+# Installation
+uv add mcp graphrag pathlib pandas
+uv run client.py   
+
 # Features
 知识图谱
 
 # TODO
 合同制作
-智能客服
+智能客服 记忆...
 市场分析 
 
 # LLM
