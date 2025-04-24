@@ -27,36 +27,15 @@ def get_exchange_rate() -> float:
         print(f"获取汇率失败: {e}")
         return 0.14  # 默认汇率
 
-def translate_chinese_to_english(text: str) -> str:
-    """
-    将中文翻译为英文
-    """
-    try:
-        if not isinstance(text, str):
-            return str(text)
-            
-        # 检查是否包含中文字符
-        if not any('\u4e00' <= char <= '\u9fff' for char in text):
-            return text
-            
-        translator = Translator()
-        result = translator.translate(text, src='zh-cn', dest='en')
-        return result.text
-    except Exception as e:
-        print(f"翻译失败: {e}")
-        return text
-
 @mcp.tool()
 async def excel_ML(query: str) -> str:
     """
-    用于读取外贸行业中的excel文件
-    任务1:支持人民币转美元价格转换
-    任务2：中文品名翻译为英文
+    任务:读取外贸行业中的excel文件支持人民币转美元价格转换
     :param query: 用户提出的具体问题
     :return: 最终获取的答案
     """
     try:
-        PROJECT_DIRECTORY = "./contract/input"
+        PROJECT_DIRECTORY = "./data/input"
         excel_files = [
             os.path.join(PROJECT_DIRECTORY, item) 
             for item in os.listdir(PROJECT_DIRECTORY)
@@ -82,18 +61,11 @@ async def excel_ML(query: str) -> str:
         for col in price_columns:
             df[col] = df[col] * exchange_rate
         
-        # 查找品名列并翻译
-        product_columns = [col for col in df.columns if '品名' in col or '名称' in col or 'name' in col.lower()]
-        for col in product_columns:
-            # 创建新的英文列
-            english_col = col.replace('品名', '英文名称').replace('名称', '英文名称')
-            # 对每一行进行翻译
-            df[english_col] = df[col].apply(translate_chinese_to_english)
-        
         # 保存转换后的文件
-        output_dir = "./contract/output"
+        output_dir = "./data"
         os.makedirs(output_dir, exist_ok=True)
-        output_file = os.path.join(output_dir, f"converted_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx")
+        # output_file = os.path.join(output_dir, f"converted_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx")
+        output_file = os.path.join(output_dir, "tmp.xlsx")
         df.to_excel(output_file, index=False)
         
         return f"文件处理完成，已保存到: {output_file}\n当前汇率: 1 CNY = {exchange_rate:.4f} USD"

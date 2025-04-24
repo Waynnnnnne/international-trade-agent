@@ -3,10 +3,14 @@ This LLM agent aims to streamline the time-consuming and repetitive work process
 
 # Installation
 uv add mcp graphrag pathlib pandas openpyxl googletrans==3.1.0a0
+
+# Run
 uv run client.py   
 
 # Features
 知识图谱
+品名翻译
+人民币价格转换美元价格
 
 # TODO
 合同制作 Excel MCP 
@@ -27,3 +31,8 @@ streamlit: https://www.youtube.com/watch?v=4sVU4GfAYOA
 
 # Citation 
 外贸流程文档: https://zhuanlan.zhihu.com/p/131489851
+
+# Prompt Examples
+给出外贸行业的流程
+读取外贸excel文件，使用工具将价格转化为美元
+读取excel翻译中文品名为英文品名,只输出英文品名到表格中，不要添加额外的字符

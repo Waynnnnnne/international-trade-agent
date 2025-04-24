@@ -119,7 +119,8 @@ class MultiServerMCPClient:
             model=self.model,
             messages=messages,
             tools=self.all_tools
-        )   
+        )
+        print(response.choices[0].finish_reason)   
         if response.choices[0].finish_reason == "tool_calls":
             while True:
                 messages = await self.create_function_response_messages(messages, response)
@@ -139,6 +140,8 @@ class MultiServerMCPClient:
         for function_call_message in function_call_messages:
             tool_name = function_call_message.function.name
             tool_args = json.loads(function_call_message.function.arguments)
+            print("tool_name: ", tool_name)
+            print("tool_args: ", tool_args)
 
             function_response = await self._call_mcp_tool(tool_name, tool_args)
             messages.append({
@@ -205,10 +208,14 @@ class MultiServerMCPClient:
         if not session:
             return f"未找到服务器: {server_name}"
         
-        # 执行MCP工具
-        resp = await session.call_tool(tool_name, tool_args)
-        print(resp)
-        return resp.content if resp.content else "工具执行无输出"
+        try:
+            # 执行MCP工具
+            resp = await session.call_tool(tool_name, tool_args)
+            if isinstance(resp.content, (list, dict)):
+                return json.dumps(resp.content, ensure_ascii=False)
+            return str(resp.content) if resp.content else "工具执行无输出"
+        except Exception as e:
+            return f"工具执行错误: {str(e)}"
     
     async def chat_loop(self):
         """交互式聊天"""
@@ -222,7 +229,9 @@ class MultiServerMCPClient:
             try:
                 messages.append({"role": "user", "content": query})
                 messages = messages[-20:]
+                print("bp1...")
                 response = await self.chat_base(messages)
+                print("bp2...")
                 messages.append(response.choices[0].message.model_dump())
                 result = response.choices[0].message.content
                 print(f"\nAI: {result}")
@@ -238,9 +247,11 @@ class MultiServerMCPClient:
 async def main():
     # 服务器脚本
     servers = {
-        "rag": "./graphrag/rag_server.py",
-        "contract": "./contract/excel_server.py"
+        "rag": "./rag/rag_server.py",
+        "excel": "./excel/excel_server.py",
+        "translator": "./translator/translator_server.py"
     }
+    
     client = MultiServerMCPClient()
     try:
         print("正在连接服务器...")
