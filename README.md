@@ -36,3 +36,7 @@ streamlit: https://www.youtube.com/watch?v=4sVU4GfAYOA
 给出外贸行业的流程
 读取外贸excel文件，使用工具将价格转化为美元
 读取excel翻译中文品名为英文品名,只输出英文品名到表格中，不要添加额外的字符
+
+# Demo Video 
+https://github.com/user-attachments/assets/652489d8-28a5-45c5-9bbb-0490f6bb9942
+
